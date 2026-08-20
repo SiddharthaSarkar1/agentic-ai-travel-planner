@@ -531,3 +531,4 @@ if __name__ == "__main__":
     print(search_flights("Plan a 10 days UK trip from India"))
     print("\n" + "=" * 80 + "\n")
     print(search_flights("all country flight info"))
+

@@ -1,13 +1,10 @@
 from dotenv import load_dotenv
-from langchain_core.tools import tool
 import os
 import requests
 
 
 load_dotenv()
 
-
-@tool
 def get_weather_details(location: str) -> str:
     """
     Get the real-time weather information for a given city or location.
@@ -130,4 +127,4 @@ def get_weather_details(location: str) -> str:
 
 
 # Test ================
-# print(get_weather_details.invoke("Kolkata, India"))
+print(get_weather_details.invoke("Kolkata, India"))
