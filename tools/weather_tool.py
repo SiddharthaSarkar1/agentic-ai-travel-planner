@@ -127,4 +127,5 @@ def get_weather_details(location: str) -> str:
 
 
 # Test ================
-print(get_weather_details.invoke("Kolkata, India"))
+if __name__ == "__main__":
+    print(get_weather_details("Kolkata, India"))

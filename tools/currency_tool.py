@@ -1,7 +1,5 @@
 import requests
-from langchain_core.tools import tool
 
-@tool
 def get_exchange_rates(from_currency: str, to_currency: str, amount: float = 1.0) -> str:
     """
     Get the latest exchange rate between two currencies and calculate the converted amount.

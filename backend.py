@@ -50,7 +50,7 @@ llm = ChatMistralAI(model="mistral-small-2506")
 # State
 
 
-class TeavelState(TypedDict):
+class TravelState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     user_query: str
     flight_results: str
@@ -59,6 +59,22 @@ class TeavelState(TypedDict):
     currency_results: str
     weather_results: str
     llm_calls: int
+
+# =========================
+# Flight Agent
+# =========================
+
+def flight_agent(state: TravelState):
+    query = state["user_query"]
+    flight_data = search_flights(query)
+
+    return {
+        "flight_results": flight_data,
+        "messages": [
+            AIMessage(content="Flight results fetched.")
+        ],
+        "llm_calls": state.get("llm_calls", 0) + 1
+    }
 
 
 # =========================
