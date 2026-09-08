@@ -1,6 +1,7 @@
 import os
 import certifi
 from dotenv import load_dotenv
+import json
 
 from typing import TypedDict, Annotated
 import operator
@@ -18,6 +19,8 @@ from langchain_core.messages import (
     SystemMessage,
 )
 from langchain_mistralai import ChatMistralAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+
 from tools.tavily_tool import tavily_search
 from tools.flight_tool import search_flights
 from tools.currency_tool import get_exchange_rates
@@ -45,7 +48,7 @@ def get_database_url():
 
 # LLM
 
-llm = ChatMistralAI(model="mistral-small-2506")
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 # State
 
@@ -81,7 +84,6 @@ def flight_agent(state: TravelState):
 # Hotel Agent
 # =========================
 
-
 def hotel_agent(state: TravelState):
     query = f"Best hotels for {state['user_query']}"
     hotel_results = tavily_search(query)
@@ -97,9 +99,8 @@ def hotel_agent(state: TravelState):
 # Itinerary Agent
 # =========================
 
-
 def itinerary_agent(state: TravelState):
-    prompt = f"""
+    prompt = f'''
 Create a complete travel itinerary.
 
 User Query:
@@ -112,7 +113,7 @@ Hotel Results:
 {state['hotel_results']}
 
 Make the itinerary practical, budget-aware, and easy to follow.
-"""
+'''
 
     response = llm.invoke(
         [
@@ -132,10 +133,38 @@ Make the itinerary practical, budget-aware, and easy to follow.
 # Currency Agent
 # =========================
 
-
 def currency_agent(state: TravelState):
-    query = f"What is the exchange rate for {state['user_query']}? and what is the converted amount? how much will it cost?"
-    currency_results = get_exchange_rates(query)
+    user_query = state["user_query"]
+    
+    system_message = '''You are an expert at extracting currency codes from user queries.
+From the user's query, identify the 'from' currency and the 'to' currency.
+Return the result as a JSON object with keys 'from_currency' and 'to_currency'.
+The currency should be in 3-letter ISO 4217 code format.
+For example, for a trip from the US to Japan, you should return:
+{ "from_currency": "USD", "to_currency": "JPY" }'''
+
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_message),
+            HumanMessage(content=user_query),
+        ]
+    )
+
+    try:
+        # The response from the LLM might be in a markdown code block, so we need to extract the JSON part.
+        content = response.content
+        json_part = content[content.find('{'):content.rfind('}')+1]
+        currencies = json.loads(json_part)
+        from_currency = currencies.get("from_currency")
+        to_currency = currencies.get("to_currency")
+
+        if from_currency and to_currency:
+            currency_results = get_exchange_rates(from_currency=from_currency, to_currency=to_currency)
+        else:
+            currency_results = "Could not determine the currencies for exchange rate lookup from the user query."
+
+    except (json.JSONDecodeError, AttributeError):
+        currency_results = "Could not extract currency information from the user query."
 
     return {
         "currency_results": currency_results,
@@ -147,7 +176,6 @@ def currency_agent(state: TravelState):
 # ===================================
 #   Weather Agent
 # ===================================
-
 
 def weather_agent(state: TravelState):
     query = f"What is the weather like in {state['user_query']}?"
@@ -163,9 +191,8 @@ def weather_agent(state: TravelState):
 # Final Response Agent
 # =========================
 
-
 def final_agent(state: TravelState):
-    final_prompt = f"""
+    final_prompt = f'''
 Generate the final, comprehensive travel response for the user based on all the gathered information.
 
 User Request:
@@ -200,7 +227,7 @@ Important Notes:
 - Be clear, concise, and practical.
 - If the flight API did not return pricing information, explicitly state that.
 - Your final output should be a complete and helpful travel plan.
-"""
+'''
 
     response = llm.invoke(
         [
@@ -251,7 +278,6 @@ travel_graph = graph.compile(checkpointer=checkpointer)
 # ============================
 # This function for FastAPI
 # ============================
-
 
 def run_travel_agent(user_input: str, thread_id: str | None = None):
     if not thread_id:
